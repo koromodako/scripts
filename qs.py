@@ -18,8 +18,8 @@ _OPTIONS_ = ['-s', '-b', '-bl']
 def build_search_string():
     search_str = ''
     for i in range(2, len(sys.argv)):
-         search_str += sys.argv[i]
-    return quote_plus(search_str)
+         search_str += sys.argv[i] + ' '
+    return quote_plus(search_str.strip())
 
 def check_min_args(num):
     if len(sys.argv) < num:
@@ -34,7 +34,7 @@ else:
         check_min_args(3)
         url = _BOOKMARKS_.get(sys.argv[2], None)
         if url:
-            call(['firefox', '--new-tab', url])
+            call(['firefox --new-tab ' + url + ' &> /dev/null &'], shell=True)
         else:
             print('No bookmark found.')
     elif opt == '-bl':
@@ -43,7 +43,7 @@ else:
             print('    + ' + b)
     elif opt == '-s':
          check_min_args(3)
-         call(['firefox', '--new-tab', 'https://duckduckgo.com/?q=' + build_search_string()])
+         call(['firefox --new-tab https://duckduckgo.com/?q=' + build_search_string() + ' &> /dev/null &'], shell=True)
     else:
         print('Unknown option.')
 
