@@ -9,7 +9,7 @@ from datetime import date
 #   FUNCTIONS
 #------------------------------------------------------------------------------
 def build_header(comment_char, filename, separator_char='~', author=''):
-    h_separator=separator_char*(80-len(comment_char))
+    h_separator=separator_char*(79-len(comment_char))
     date_str=date.today().strftime('%Y-%m-%d')
     header="""{0}{1}
 {0} file:    {2}
@@ -49,6 +49,8 @@ def touch_cpp_source(filename):
 def touch_py_file(filename):
     h_separator='#{}\n'.format('='*79)
     with open(filename, 'w') as f:
+        f.write('#!/usr/bin/env python3\n')
+        f.write('# -!- encoding: utf8 -!-\n')
         f.write(build_header('#', filename))
         f.write(h_separator)
         f.write('#  IMPORTS\n')
@@ -64,6 +66,12 @@ def touch_py_file(filename):
         f.write('\n')
     return False
 
+def touch_asm_file(filename):
+    basename = filename.split('.')[0]
+    with open(filename, 'w') as f:
+        f.write(build_header(';', filename))
+        f.write('[SECTION .text]\nglobal _start\n\n_start:')
+
 def touch_default(filename):
     with open(filename, 'w') as f:
         f.close()
@@ -76,7 +84,8 @@ touch_funcs={
     'c':touch_c_source,
     'hpp':touch_cpp_header,
     'cpp':touch_cpp_source,
-    'py':touch_py_file
+    'py':touch_py_file,
+    'asm':touch_asm_file
 }
 #------------------------------------------------------------------------------
 #   MAIN
