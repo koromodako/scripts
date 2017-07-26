@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -!- encoding:utf8 -!-
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#    file: shellcode.py
+#    file: qs.py
 #    date: 2017-07-26
 #  author: paul.dautry
 # purpose:
