@@ -1,13 +1,21 @@
 #!/usr/bin/python3
 # -!- encoding:utf8 -!-
-#------------------------------------------------------------------------------
-#   IMPORTS
-#------------------------------------------------------------------------------
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#    file: etouch.py
+#    date: 2017-07-26
+#  author: paul.dautry
+# purpose:
+#   etouch stands for enhanced touch, touch w/ file templates
+# license:
+#   GPLv3
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# IMPORTS
+#-------------------------------------------------------------------------------
 import sys
 from datetime import date
-#------------------------------------------------------------------------------
-#   FUNCTIONS
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# FUNCTIONS
+#-------------------------------------------------------------------------------
 def build_header(comment_char, filename, separator_char='~', author=''):
     h_separator=separator_char*(79-len(comment_char))
     date_str=date.today().strftime('%Y-%m-%d')
@@ -76,10 +84,26 @@ def touch_default(filename):
     with open(filename, 'w') as f:
         f.close()
     return True
-#------------------------------------------------------------------------------
-#   GLOBALS
-#------------------------------------------------------------------------------
-touch_funcs={
+
+def main():
+    if len(sys.argv) < 2:
+        print('usage: etouch <filename> ...')
+    else:
+        for i in range(1, len(sys.argv)):
+            fn = sys.argv[i]
+            if '.' in fn:
+                ext = fn.split('.')[-1]
+                func = touch_funcs.get(ext)
+                if func is None:
+                    touch_default(fn)
+                else:
+                    func(fn)
+            else:
+                touch_default(fn)
+#-------------------------------------------------------------------------------
+# CONFIGURATION
+#-------------------------------------------------------------------------------
+TOUCH_FUNC={
     'h':touch_c_header,
     'c':touch_c_source,
     'hpp':touch_cpp_header,
@@ -88,19 +112,7 @@ touch_funcs={
     'asm':touch_asm_file
 }
 #------------------------------------------------------------------------------
-#   MAIN
+# SCRIPT
 #------------------------------------------------------------------------------
-if len(sys.argv) < 2:
-    print('usage: etouch <filename> ...')
-else:
-    for i in range(1, len(sys.argv)):
-        fn = sys.argv[i]
-        if '.' in fn:
-            ext = fn.split('.')[-1]
-            func = touch_funcs.get(ext)
-            if func is None:
-                touch_default(fn)
-            else:
-                func(fn)
-        else:
-            touch_default(fn)
+if __name__ == '__main__':
+    main()
