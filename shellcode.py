@@ -56,7 +56,7 @@ def shellcode(dump, function):
     while k < len(lines):
         if tag in lines[k]:
             while k < len(lines):
-                line = lines[k]
+                line = lines[k].strip()
                 if len(line) == 0:
                     break
                 sc.append(parse_line(line))
