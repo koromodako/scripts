@@ -85,7 +85,7 @@ def touch_default(filename):
         f.close()
     return True
 
-def main():
+def main(touch_funcs):
     if len(sys.argv) < 2:
         print('usage: etouch <filename> ...')
     else:
@@ -103,7 +103,7 @@ def main():
 #-------------------------------------------------------------------------------
 # CONFIGURATION
 #-------------------------------------------------------------------------------
-TOUCH_FUNC={
+TOUCH_FUNCS={
     'h':touch_c_header,
     'c':touch_c_source,
     'hpp':touch_cpp_header,
@@ -115,4 +115,4 @@ TOUCH_FUNC={
 # SCRIPT
 #------------------------------------------------------------------------------
 if __name__ == '__main__':
-    main()
+    main(TOUCH_FUNCS)
