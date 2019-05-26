@@ -1,12 +1,3 @@
 # Scripts
 
-This repository contains some scripts to automate different tasks.
-
-## Scripts descriptions
-
- + **etouch.py**: enhanced touch creates new files based on templates.
- + **find_geoloc_grandlyon.py**: small script that was used to extract content from GrandLyon website.
- + **projstats.py**: count lines of code in a project because bash command using `wc -l` is too long to remember.
- + **qs.py**: **q**uick **s**earch is a commandline tool which opens a web browser directly at the place I asks on the Internet.
- + **rasp_finder.py**: finds my Raspberry Pi in my LAN depending on its active connection (ethernet or wifi).
- + **shellcode.py**: extracts a shellcode from objdump output.
+This repository contains a collection of useful scripts.
