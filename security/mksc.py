@@ -63,7 +63,10 @@ def parse_args():
     p = argparse.ArgumentParser(description="Making shellcode creation easy!")
     p.add_argument('asm_src', type=pathlib.Path, help="ASM source file")
     p.add_argument('--debug', action='store_true', help="Increase script verbosity")
-    p.add_argument('--format', choices=[fmt.value for fmt in OutputFormat], type=OutputFormat,
+    p.add_argument('--format',
+                   choices=[fmt.value for fmt in OutputFormat],
+                   default=OutputFormat.PrintF,
+                   type=OutputFormat,
                    help="Output format")
     p.add_argument('--bin-fmt', default='elf64', help="Binary format to produce")
     p.add_argument('--pad-byte', type=int, default=0x90, help="Padding byte to add at the end if necessary")
