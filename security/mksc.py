@@ -2,6 +2,7 @@
 import os
 import re
 import sys
+import enum
 import pathlib
 import argparse
 import binascii
@@ -9,6 +10,28 @@ import subprocess
 
 DEBUG = False
 HEX_RE = re.compile(r'^[0-9a-f]{2}$')
+
+class OutputFormat(enum.Enum):
+    Raw = 'raw'
+    PrintF = 'printf'
+    Python = 'python'
+
+def raw_out(data):
+    sys.stdout.buffer.write(data)
+
+def printf_out(data):
+    hdata = str(data)[2:-1]
+    print(f'printf "{hdata}"')
+
+def python_out(data):
+    hdata = str(data)[2:-1]
+    print(f'python3 -c "import sys;sys.stdout.buffer.write(b\'{hdata}\')"')
+
+OUTPUT_FMT_MAP = {
+    OutputFormat.Raw: raw_out,
+    OutputFormat.PrintF: printf_out,
+    OutputFormat.Python: python_out,
+}
 
 def pdbg(msg):
     if DEBUG:
@@ -38,15 +61,15 @@ def extract(objdump):
 
 def parse_args():
     p = argparse.ArgumentParser(description="Making shellcode creation easy!")
-    p.add_argument('asm_src', type=pathlib.Path)
-    p.add_argument('--debug', action='store_true')
-    p.add_argument('--raw-out', action='store_true')
-    p.add_argument('--bin-fmt', default='elf64')
-    p.add_argument('--pad-byte', type=int, default=0x90)
-    p.add_argument('--expected-size', type=int, default=-1)
-    p.add_argument('--extra-suffix')
-    p.add_argument('--extra-prefix')
-    p.add_argument
+    p.add_argument('asm_src', type=pathlib.Path, help="ASM source file")
+    p.add_argument('--debug', action='store_true', help="Increase script verbosity")
+    p.add_argument('--format', choices=[fmt.value for fmt in OutputFormat], type=OutputFormat,
+                   help="Output format")
+    p.add_argument('--bin-fmt', default='elf64', help="Binary format to produce")
+    p.add_argument('--pad-byte', type=int, default=0x90, help="Padding byte to add at the end if necessary")
+    p.add_argument('--expected-size', type=int, default=-1, help="Payload size required at the end")
+    p.add_argument('--extra-suffix', help="Payload raw suffix")
+    p.add_argument('--extra-prefix', help="Payload raw prefix")
     return p.parse_args()
 
 if __name__ == '__main__':
@@ -65,7 +88,5 @@ if __name__ == '__main__':
     if args.extra_prefix:
         dat = args.extra_prefix.encode() + dat
     dat = bytes(dat)
-    if args.raw_out:
-        sys.stdout.buffer.write(dat)
-    else:
-        print(f'python3 -c \'import sys;sys.stdout.buffer.write({dat})\'')
+    OUTPUT_FMT_MAP[args.format](dat)
+
