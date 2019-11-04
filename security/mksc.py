@@ -59,11 +59,11 @@ def raw_out(data):
 
 def printf_out(data):
     hdata = str(data)[2:-1]
-    print(f'printf "{hdata}"')
+    print(f"printf '{hdata}'")
 
 def python_out(data):
     hdata = str(data)[2:-1]
-    print(f'python3 -c "import sys;sys.stdout.buffer.write(b\'{hdata}\')"')
+    print(f"python3 -c 'import sys;sys.stdout.buffer.write(b\"{hdata}\")'")
 
 OUTPUT_FMT_MAP = {
     OutputFormat.Raw:       raw_out,
