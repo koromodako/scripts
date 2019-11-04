@@ -98,6 +98,7 @@ def generate(dist_dir, asm_path, bin_fmt):
     app_log.info("creating objdump from object...")
     objdmp = run_cmd(['objdump', '-d', str(obj_path)])
     hex_path.write_bytes(objdmp)
+    app_log.info(f"objdump written to: {hex_path}")
     return objdmp.decode()
 
 HEX_RE = re.compile(r'[0-9a-f]+:(?P<bytes>(\s[0-9a-f]{2})+)')
@@ -116,6 +117,11 @@ def parse_objdmp(objdmp):
     shcode = bytearray(unhexlify(hstr))
     return shcode
 
+def xor_encode(shcode, hex_xor):
+    key = unhexlify(hex_xor)
+    keyl = len(key)
+    return bytes([shcode[i] ^ key[i % keyl] for i in range(len(shcode))])
+
 def parse_args():
     p = ArgumentParser(description="Making shellcode creation easy!")
     p.add_argument('asm_path', type=Path, help="ASM source file")
@@ -132,9 +138,10 @@ def parse_args():
                    help="Binary format to produce")
     p.add_argument('--pad-byte', type=int, default=0x90, help="Padding byte to add at the end if necessary")
     p.add_argument('--dist-dir', default=Path('mksc.dist'), type=Path, help="Distribution directory")
-    p.add_argument('--expected-size', type=int, default=-1, help="Payload size required at the end")
+    p.add_argument('--hex-xor', help="Hex representation of the XOR key")
     p.add_argument('--hex-suffix', help="Payload hex-encoded suffix")
     p.add_argument('--hex-prefix', help="Payload hex-encoded prefix")
+    p.add_argument('--expected-size', type=int, default=-1, help="Payload size required at the end")
     return p.parse_args()
 
 def app(args):
@@ -144,9 +151,6 @@ def app(args):
         return
     # extract shellcode from objdump output
     shcode = parse_objdmp(objdmp)
-    shc_path = args.dist_dir.joinpath(f'{args.asm_path.stem}.shc')
-    shc_path.write_bytes(shcode)
-    ndisasm(shc_path, args.bin_fmt)
     # perform padding if required
     pad_size = args.expected_size - len(shcode)
     if pad_size < 0 and args.expected_size > 0:
@@ -155,13 +159,21 @@ def app(args):
         shcode += pad_size * bytearray([args.pad_byte])
     # append hex-encoded suffix
     if args.hex_suffix:
-        shcode += unhexlify(args.hex_suffix)
+        shcode += bytearray(unhexlify(args.hex_suffix))
     # prepend hex-encoded prefix
     if args.hex_prefix:
-        shcode = unhexlify(args.hex_prefix) + shcode
-    shcode = bytes(shcode)
+        shcode = bytearray(unhexlify(args.hex_prefix)) + shcode
+    shc_path = args.dist_dir.joinpath(f'{args.asm_path.stem}.shc')
+    shc_path.write_bytes(bytes(shcode))
+    app_log.info(f"raw payload written to: {shc_path}")
+    ndisasm(shc_path, args.bin_fmt)
     app_log.info("printing payload:")
-    OUTPUT_FMT_MAP[args.format](shcode)
+    OUTPUT_FMT_MAP[args.format](bytes(shcode))
+    if args.hex_xor:
+        xored_shcode = xor_encode(shcode, args.hex_xor)
+        xshc_path = args.dist_dir.joinpath(f'{args.asm_path.stem}.xshc')
+        xshc_path.write_bytes(bytes(xored_shcode))
+        app_log.info(f"xored payload written to: {xshc_path}")
 
 if __name__ == '__main__':
     # parse command line arguments
