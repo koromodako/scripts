@@ -13,12 +13,45 @@ basicConfig(format='(%(name)s)[%(levelname)7s]: %(message)s', level=DEBUG)
 app_log = getLogger('mksc')
 app_log.setLevel(INFO)
 
-HEX_RE = re.compile(r'^[0-9a-f]{2}$')
 
 class OutputFormat(Enum):
     Raw = 'raw'
     PrintF = 'printf'
     Python = 'python'
+
+class NASMFormat(Enum):
+    '''From `nasm -hf`
+
+    ELF only for now...
+    '''
+    #BIN = 'bin'       # flat-form binary files (e.g. DOS .COM, .SYS)
+    #ITH = 'ith'       # Intel hex
+    #OBJ = 'obj'       # MS-DOS 16-bit/32-bit OMF object files
+    #RDF = 'rdf'       # Relocatable Dynamic Object File Format v2.0
+    #DBG = 'dbg'       # Trace of all info passed to output stage
+    ELF = 'elf'       # ELF (short name for ELF32)
+    #WIN = 'win'       # WIN (short name for WIN32)
+    #SREC = 'srec'      # Motorola S-records
+    #AOUT = 'aout'      # Linux a.out object files
+    #AS86 = 'as86'      # Linux as86 (bin86 version 0.3) object files
+    #COFF = 'coff'      # COFF (i386) object files (e.g. DJGPP for DOS)
+    #IEEE = 'ieee'      # IEEE-695 (LADsoft variant) object file format
+    #AOUTB = 'aoutb'     # NetBSD/FreeBSD a.out object files
+    ELF32 = 'elf32'     # ELF32 (i386) object files (e.g. Linux)
+    ELF64 = 'elf64'     # ELF64 (x86_64) object files (e.g. Linux)
+    #WIN32 = 'win32'     # Microsoft Win32 (i386) object files
+    #WIN64 = 'win64'     # Microsoft Win64 (x86-64) object files
+    #MACHO = 'macho'     # MACHO (short name for MACHO32)
+    ELFX32 = 'elfx32'    # ELFX32 (x86_64) object files (e.g. Linux)
+    #MACHO32 = 'macho32'   # NeXTstep/OpenStep/Rhapsody/Darwin/MacOS X (i386) object files
+    #MACHO64 = 'macho64'   # NeXTstep/OpenStep/Rhapsody/Darwin/MacOS X (x86_64) object files
+
+NASM_MODE_MAP = {
+    NASMFormat.ELF:     32,
+    NASMFormat.ELF32:   32,
+    NASMFormat.ELF64:   64,
+    NASMFormat.ELFX32:  64
+}
 
 def raw_out(data):
     sys.stdout.buffer.write(data)
@@ -32,9 +65,9 @@ def python_out(data):
     print(f'python3 -c "import sys;sys.stdout.buffer.write(b\'{hdata}\')"')
 
 OUTPUT_FMT_MAP = {
-    OutputFormat.Raw: raw_out,
-    OutputFormat.PrintF: printf_out,
-    OutputFormat.Python: python_out,
+    OutputFormat.Raw:       raw_out,
+    OutputFormat.PrintF:    printf_out,
+    OutputFormat.Python:    python_out,
 }
 
 def run_cmd(cmd, **kwargs):
@@ -42,30 +75,46 @@ def run_cmd(cmd, **kwargs):
     app_log.debug(f"running: {pcmd}")
     return check_output(cmd, **kwargs)
 
+def ndisasm(shc_path, bin_fmt):
+    output = run_cmd(['ndisasm', '-b', str(NASM_MODE_MAP[bin_fmt]), str(shc_path)])
+    app_log.info("--------------------------[NDISASM]--------------------------")
+    for line in output.decode().split('\n'):
+        if line:
+            app_log.info(line.lower())
+    app_log.info("-------------------------------------------------------------")
+
 def generate(dist_dir, asm_path, bin_fmt):
+    if not asm_path.is_file():
+        app_log.error(f"{asm_path} is not an assembly file.")
+        return
     dist_dir.mkdir(parents=True, exist_ok=True)
     obj_path = dist_dir.joinpath(f'{asm_path.stem}.obj')
     bin_path = dist_dir.joinpath(f'{asm_path.stem}.bin')
     hex_path = dist_dir.joinpath(f'{asm_path.stem}.hex')
     app_log.info("creating object from assembly...")
-    run_cmd(['nasm', '-f', bin_fmt, '-o', str(obj_path), str(asm_path)])
+    run_cmd(['nasm', '-f', bin_fmt.value, '-o', str(obj_path), str(asm_path)])
     app_log.info("creating executable from object...")
     run_cmd(['ld', '-o', str(bin_path), str(obj_path)])
     app_log.info("creating objdump from object...")
-    dat = run_cmd(['objdump', '-d', str(obj_path)])
-    hex_path.write_bytes(dat)
-    return dat
+    objdmp = run_cmd(['objdump', '-d', str(obj_path)])
+    hex_path.write_bytes(objdmp)
+    return objdmp.decode()
 
-def extract(objdump):
-    app_log.info("extracting shellcode from objdump...")
+HEX_RE = re.compile(r'[0-9a-f]+:(?P<bytes>(\s[0-9a-f]{2})+)')
+
+def parse_objdmp(objdmp):
+    app_log.info("extracting bytes from objdump output...")
     hstr = ''
-    for line in objdump.split('\n'):
+    for line in objdmp.split('\n'):
         line = line.replace('\t', ' ').strip()
         if not line:
             continue
-        parts = [elt for elt in filter(lambda x: HEX_RE.match(x), line.split(' '))]
-        hstr += ''.join(parts)
-    return bytearray(unhexlify(hstr))
+        match = HEX_RE.match(line)
+        if not match:
+            continue
+        hstr += ''.join(match.group('bytes').replace(' ', ''))
+    shcode = bytearray(unhexlify(hstr))
+    return shcode
 
 def parse_args():
     p = ArgumentParser(description="Making shellcode creation easy!")
@@ -76,7 +125,11 @@ def parse_args():
                    default=OutputFormat.PrintF,
                    type=OutputFormat,
                    help="Output format")
-    p.add_argument('--bin-fmt', default='elf64', help="Binary format to produce")
+    p.add_argument('--bin-fmt',
+                   choices=[fmt.value for fmt in NASMFormat],
+                   default=NASMFormat.ELF64,
+                   type=NASMFormat,
+                   help="Binary format to produce")
     p.add_argument('--pad-byte', type=int, default=0x90, help="Padding byte to add at the end if necessary")
     p.add_argument('--dist-dir', default=Path('mksc.dist'), type=Path, help="Distribution directory")
     p.add_argument('--expected-size', type=int, default=-1, help="Payload size required at the end")
@@ -86,26 +139,29 @@ def parse_args():
 
 def app(args):
     # generate required elements from assembly source file
-    dat = generate(args.dist_dir,
-                   args.asm_path,
-                   args.bin_fmt)
+    objdmp = generate(args.dist_dir, args.asm_path, args.bin_fmt)
+    if not objdmp:
+        return
     # extract shellcode from objdump output
-    dat = extract(dat.decode())
+    shcode = parse_objdmp(objdmp)
+    shc_path = args.dist_dir.joinpath(f'{args.asm_path.stem}.shc')
+    shc_path.write_bytes(shcode)
+    ndisasm(shc_path, args.bin_fmt)
     # perform padding if required
-    pad_size = args.expected_size - len(dat)
+    pad_size = args.expected_size - len(shcode)
     if pad_size < 0 and args.expected_size > 0:
-        app_log.warning(f"warning: shellcode size ({len(dat)}) exceeds expected size")
+        app_log.warning(f"warning: shellcode size ({len(shcode)}) exceeds expected size")
     if pad_size > 0:
-        dat += pad_size * bytearray([args.pad_byte])
+        shcode += pad_size * bytearray([args.pad_byte])
     # append hex-encoded suffix
     if args.hex_suffix:
-        dat += unhexlify(args.hex_suffix)
+        shcode += unhexlify(args.hex_suffix)
     # prepend hex-encoded prefix
     if args.hex_prefix:
-        dat = unhexlify(args.hex_prefix) + dat
-    dat = bytes(dat)
+        shcode = unhexlify(args.hex_prefix) + shcode
+    shcode = bytes(shcode)
     app_log.info("printing payload:")
-    OUTPUT_FMT_MAP[args.format](dat)
+    OUTPUT_FMT_MAP[args.format](shcode)
 
 if __name__ == '__main__':
     # parse command line arguments
