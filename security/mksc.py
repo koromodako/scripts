@@ -13,6 +13,7 @@ basicConfig(format='(%(name)s)[%(levelname)7s]: %(message)s', level=DEBUG)
 app_log = getLogger('mksc')
 app_log.setLevel(INFO)
 
+NULL_BYTE = b'\x00'
 
 class OutputFormat(Enum):
     Raw = 'raw'
@@ -167,10 +168,15 @@ def app(args):
     shc_path.write_bytes(bytes(shcode))
     app_log.info(f"raw payload written to: {shc_path}")
     ndisasm(shc_path, args.bin_fmt)
+    app_log.info(f"payload length: {len(shcode)}")
+    if NULL_BYTE in shcode:
+            app_log.warning("payload contains null bytes.")
     app_log.info("printing payload:")
     OUTPUT_FMT_MAP[args.format](bytes(shcode))
     if args.hex_xor:
         xored_shcode = xor_encode(shcode, args.hex_xor)
+        if NULL_BYTE in xored_shcode:
+            app_log.warning("xored payload contains null bytes.")
         xshc_path = args.dist_dir.joinpath(f'{args.asm_path.stem}.xshc')
         xshc_path.write_bytes(bytes(xored_shcode))
         app_log.info(f"xored payload written to: {xshc_path}")
