@@ -166,11 +166,11 @@ def app(args):
         shcode = bytearray(unhexlify(args.hex_prefix)) + shcode
     shc_path = args.dist_dir.joinpath(f'{args.asm_path.stem}.shc')
     shc_path.write_bytes(bytes(shcode))
-    app_log.info(f"raw payload written to: {shc_path}")
     ndisasm(shc_path, args.bin_fmt)
     app_log.info(f"payload length: {len(shcode)}")
     if NULL_BYTE in shcode:
             app_log.warning("payload contains null bytes.")
+    app_log.info(f"raw payload written to: {shc_path}")
     app_log.info("printing payload:")
     OUTPUT_FMT_MAP[args.format](bytes(shcode))
     if args.hex_xor:
@@ -180,6 +180,8 @@ def app(args):
         xshc_path = args.dist_dir.joinpath(f'{args.asm_path.stem}.xshc')
         xshc_path.write_bytes(bytes(xored_shcode))
         app_log.info(f"xored payload written to: {xshc_path}")
+        app_log.info("printing xored payload:")
+        OUTPUT_FMT_MAP[args.format](bytes(xored_shcode))
 
 if __name__ == '__main__':
     # parse command line arguments
