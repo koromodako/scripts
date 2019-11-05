@@ -107,6 +107,7 @@ class ShellCode:
         ok = True
         # check max size
         size = len(self._data)
+        app_log.info(f"shellcode size: {size} bytes")
         if max_size and size > max_size:
             ok = False
             app_log.warning(f"payload bigger than {max_size} bytes ({size}).")
