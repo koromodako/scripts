@@ -47,6 +47,15 @@ PNGChunk = Struct(
     'crc' / Int32ub,
 )
 
+def chk2data(chk):
+    '''
+    '''
+    data = Int32ub.build(chk.length)
+    data += chk.type
+    data += chk.data
+    data += Int32ub.build(chk.crc)
+    return data
+
 class PNGFile:
     '''Represent a PNG file
     '''
@@ -116,10 +125,7 @@ class PNGFile:
         with filepath.open('wb') as png:
             png.write(self._header.signature)
             for chk in self._chunks:
-                png.write(Int32ub.build(chk.length))
-                png.write(chk.type)
-                png.write(chk.data)
-                png.write(Int32ub.build(chk.crc))
+                png.write(chk2data(chk))
 
 def png_crc(data):
     '''Compute CRC32
@@ -157,10 +163,38 @@ def png_dissect(png_path):
         valid_crc = png_check_crc(chk)
         print(f"     - chunk CRC is {'' if valid_crc else 'in'}valid")
 
+def png_disassemble(png_path, output_dir, data_only):
+   '''Disassemble a PNG file
+   '''
+   cntr = {chk_type: 0 for chk_type in ANCILLARY_CHUNKS+CRITICAL_CHUNKS}
+   pngf = PNGFile(png_path)
+   output_dir.mkdir(exist_ok=True, parents=True)
+   if not data_only:
+       outf = output_dir.joinpath('header.dat')
+       print(f"creating {outf} ...")
+       outf.write_bytes(pngf.header.signature)
+   for chk in pngf.chunks:
+       chk_type = chk.type.decode()
+       if chk_type not in cntr:
+           cntr[chk_type] = 0
+       if data_only:
+           content = chk.data
+       else:
+           content = chk2data(chk)
+       outf = output_dir.joinpath(f'{chk_type}-{cntr[chk_type]}.dat')
+       print(f"creating {outf} ...")
+       outf.write_bytes(content)
+       cntr[chk_type] += 1
+
 def dissect_cmd(args):
     '''Implement 'dissect' command
     '''
     png_dissect(args.png_path)
+
+def disassemble_cmd(args):
+    '''Implement 'disassemble' command
+    '''
+    png_disassemble(args.png_path, args.output_dir, args.data_only)
 
 def insert_cmd(args):
     '''Implement 'insert' command
@@ -183,6 +217,11 @@ def app():
     # -- dissect
     dissect = subparsers.add_parser('dissect', help="Dissect a PNG file")
     dissect.set_defaults(func=dissect_cmd)
+    # -- disassemble
+    disassemble = subparsers.add_parser('disassemble', help="Disassemble a PNG file")
+    disassemble.add_argument('--output-dir', '-o', type=Path, default=Path('.'), help="Use this option to specify where parts should be extracted")
+    disassemble.add_argument('--data-only', action='store_true', help="Use this option to extract data only")
+    disassemble.set_defaults(func=disassemble_cmd)
     # -- insert
     insert = subparsers.add_parser('insert', help="Insert a chunk in a PNG file")
     insert.add_argument('index', type=int, help="Insert chunk at this index")

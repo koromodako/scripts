@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+port="${1}"
+dest="${2}"
+if [ "${port}" == "" ] || [ "${dest}" == "" ]; then
+  echo "usage: ${0} port dest"
+  exit 1
+fi
+cmd=$(python3 -c "print(' '.join(['sshpass','-p','${dest}'.split('@')[0],'ssh','-p','${port}','${dest}']))")
+bash -c "${cmd}"
